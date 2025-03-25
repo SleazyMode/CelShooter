@@ -1,0 +1,153 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import * as dat from 'dat.gui';
+import Stats from 'stats.js';
+
+// Import game modules
+import GameManager from './game/GameManager.js';
+import Player from './game/Player.js';
+import InputController from './game/InputController.js';
+
+// Initialize stats for performance monitoring
+const stats = new Stats();
+stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+document.body.appendChild(stats.dom);
+
+// Initialize dat.GUI for debug controls
+const gui = new dat.GUI({ autoPlace: false });
+document.getElementById('debug-container').appendChild(gui.domElement);
+
+// Debug parameters
+const debugParams = {
+  enableCelShading: true,
+  showWireframe: false,
+  cameraFOV: 75,
+  shadowResolution: 2048
+};
+
+// Add controls to GUI
+gui.add(debugParams, 'enableCelShading').onChange(updateMaterials);
+gui.add(debugParams, 'showWireframe').onChange(updateMaterials);
+gui.add(debugParams, 'cameraFOV', 60, 120).onChange(value => {
+  camera.fov = value;
+  camera.updateProjectionMatrix();
+});
+
+// Setup the scene
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB); // Light blue sky
+
+// Setup the camera
+const camera = new THREE.PerspectiveCamera(
+  debugParams.cameraFOV,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+camera.position.set(0, 2, 5);
+
+// Setup the renderer
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.getElementById('game-container').appendChild(renderer.domElement);
+
+// Add orbit controls (for development only)
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+
+// Add lights
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambientLight);
+
+const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+directionalLight.position.set(5, 10, 5);
+directionalLight.castShadow = true;
+directionalLight.shadow.mapSize.width = debugParams.shadowResolution;
+directionalLight.shadow.mapSize.height = debugParams.shadowResolution;
+directionalLight.shadow.camera.near = 0.5;
+directionalLight.shadow.camera.far = 20;
+scene.add(directionalLight);
+
+// Helper function to update materials based on debug settings
+function updateMaterials() {
+  scene.traverse(child => {
+    if (child.isMesh && child.material) {
+      if (debugParams.enableCelShading) {
+        if (child.material.type !== 'MeshToonMaterial') {
+          const color = child.material.color ? child.material.color : new THREE.Color(0x808080);
+          child.material = new THREE.MeshToonMaterial({
+            color: color,
+            wireframe: debugParams.showWireframe
+          });
+        }
+      } else {
+        if (child.material.type === 'MeshToonMaterial') {
+          const color = child.material.color;
+          child.material = new THREE.MeshStandardMaterial({
+            color: color,
+            wireframe: debugParams.showWireframe
+          });
+        }
+      }
+      
+      // Update wireframe setting
+      if (child.material.wireframe !== undefined) {
+        child.material.wireframe = debugParams.showWireframe;
+      }
+    }
+  });
+}
+
+// Add a basic test environment
+// Ground plane
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(20, 20),
+  new THREE.MeshToonMaterial({ color: 0x44aa44 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// Test box
+const box = new THREE.Mesh(
+  new THREE.BoxGeometry(1, 1, 1),
+  new THREE.MeshToonMaterial({ color: 0xff4444 })
+);
+box.position.set(0, 0.5, 0);
+box.castShadow = true;
+box.receiveShadow = true;
+scene.add(box);
+
+// Test sphere
+const sphere = new THREE.Mesh(
+  new THREE.SphereGeometry(0.5, 32, 32),
+  new THREE.MeshToonMaterial({ color: 0x4444ff })
+);
+sphere.position.set(2, 0.5, 0);
+sphere.castShadow = true;
+sphere.receiveShadow = true;
+scene.add(sphere);
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Animation loop
+function animate() {
+  requestAnimationFrame(animate);
+  stats.begin();
+  controls.update();
+  box.rotation.y += 0.01;
+  sphere.rotation.y += 0.01;
+  renderer.render(scene, camera);
+  stats.end();
+}
+
+animate();
+console.log('Cel-Shaded Carnage initialized');

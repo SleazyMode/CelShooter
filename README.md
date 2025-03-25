@@ -1,7 +1,5 @@
 PROMPTS USED
 
-You are an AI coder tasked with creating a cel-shaded first-person shooter (team deathmatch) game named "Cel-Shaded Carnage."
-
 1. Create a new folder called `cel-shaded-fps` and initialize a Node.js project inside it.
 2. Set up basic dependencies:
    - three (for rendering)
